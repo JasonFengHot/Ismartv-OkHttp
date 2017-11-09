@@ -28,6 +28,8 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import okhttp3.internal.Util;
 import okhttp3.internal.cache.CacheRequest;
@@ -184,7 +186,9 @@ public final class Cache implements Closeable, Flushable {
   }
 
   public static String key(HttpUrl url) {
-    return ByteString.encodeUtf8(url.toString()).md5().hex();
+      String targetUrl = getTargetUrl(url.toString());
+      HttpUrl targetHttpUrl = HttpUrl.parse(targetUrl);
+      return ByteString.encodeUtf8(targetHttpUrl.encodedPath()).md5().hex();
   }
 
   @Nullable Response get(Request request) {
@@ -690,9 +694,10 @@ public final class Cache implements Closeable, Flushable {
     }
 
     public boolean matches(Request request, Response response) {
-      return url.equals(request.url().toString())
-          && requestMethod.equals(request.method())
-          && HttpHeaders.varyMatches(response, varyHeaders, request);
+//      return url.equals(request.url().toString())
+//          && requestMethod.equals(request.method())
+//          && HttpHeaders.varyMatches(response, varyHeaders, request);
+        return true;
     }
 
     public Response response(DiskLruCache.Snapshot snapshot) {
@@ -767,4 +772,21 @@ public final class Cache implements Closeable, Flushable {
       return bodySource;
     }
   }
+
+    public static String getTargetUrl(String html) {
+        String regEx = "http://([\\w|\\.]+)/([\\w|/]+)/api/";
+        Pattern pattern = Pattern.compile(regEx);
+
+        Matcher matcher = pattern.matcher(html);
+        if (matcher.find()) {
+            // matcher.group() http://sky.tvxio.com/v3_0/SKY2/tou0/api/
+            // matcher.group(1) 域名 sky.tvxio.com
+            // matcher.group(2) 能力 v3_0/SKY2/tou0
+
+            String cap = matcher.group(2) + "/";
+            html = html.replaceAll(cap, "");
+        }
+        // 处理后：http://sky.tvxio.bestv.com.cn/[capability]api/clip/1969200/
+        return html;
+    }
 }
